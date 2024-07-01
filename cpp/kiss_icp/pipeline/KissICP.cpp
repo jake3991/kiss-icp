@@ -30,6 +30,32 @@
 #include "kiss_icp/core/Preprocessing.hpp"
 #include "kiss_icp/core/Registration.hpp"
 #include "kiss_icp/core/VoxelHashMap.hpp"
+#include <iostream>
+
+struct Quaternion
+{
+    double w, x, y, z;
+};
+
+Quaternion ToQuaternion(double roll, double pitch, double yaw) // roll (x), pitch (y), yaw (z), angles are in radians
+{
+    // Abbreviations for the various angular functions
+
+    double cr = cos(roll * 0.5);
+    double sr = sin(roll * 0.5);
+    double cp = cos(pitch * 0.5);
+    double sp = sin(pitch * 0.5);
+    double cy = cos(yaw * 0.5);
+    double sy = sin(yaw * 0.5);
+
+    Quaternion q;
+    q.w = cr * cp * cy + sr * sp * sy;
+    q.x = sr * cp * cy - cr * sp * sy;
+    q.y = cr * sp * cy + sr * cp * sy;
+    q.z = cr * cp * sy - sr * sp * cy;
+
+    return q;
+}
 
 namespace kiss_icp::pipeline {
 
@@ -53,7 +79,15 @@ KissICP::Vector3dVectorTuple KissICP::RegisterFrame(const std::vector<Eigen::Vec
     const double sigma = adaptive_threshold_.ComputeThreshold();
 
     // Compute initial_guess for ICP
-    const auto initial_guess = last_pose_ * last_delta_;
+    const auto T = last_pose_ * last_delta_;
+
+    //get the quaterinians, but with no roll and pitch
+    Quaternion flat_rotation = ToQuaternion(0,0,T.angleZ());
+    
+    //generate an initial guess with the flat rotation and a zero Z-axis, no height
+    Eigen::Quaterniond q(T.so3().unit_quaternion());
+    Sophus::SE3d initial_guess = Sophus::SE3d(Sophus::SE3d::QuaternionType(flat_rotation.w, flat_rotation.x, flat_rotation.y, flat_rotation.z),
+                                            Sophus::SE3d::Point(T.translation().x(),T.translation().y(),0.0));
 
     // Run ICP
     const auto new_pose = registration_.AlignPointsToMap(source,         // frame
