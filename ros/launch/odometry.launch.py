@@ -37,7 +37,7 @@ from launch_ros.substitutions import FindPackageShare
 # launch file and modify the 'parameters=' block from the Node class.
 class config:
     # Preprocessing
-    max_range: float = 100.0
+    max_range: float = 500.0
     min_range: float = 5.0
     deskew: bool = False
 
